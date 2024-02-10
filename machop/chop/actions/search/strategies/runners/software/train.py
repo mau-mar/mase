@@ -4,20 +4,27 @@ from torchmetrics.classification import MulticlassAccuracy
 from torchmetrics.text import Perplexity
 from torchmetrics import MeanMetric
 from transformers import get_scheduler
-
+ 
 import torch.distributed as dist
 import torch.nn as nn
 import torch.optim as optim
 import torch.multiprocessing as mp
-
+ 
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
-
+ 
+from chop.ir.graph.mase_graph import MaseGraph
+ 
 from .base import SWRunnerBase
-
-
+ 
+ 
 def get_optimizer(model, optimizer: str, learning_rate, weight_decay=0.0):
+    # model can be either MaseGraph or nn.Module; if a MaseGraph is passed, 
+    # extract the nn.Module 
+    if isinstance(model, MaseGraph): 
+        model = model.model
+
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
         {
@@ -48,19 +55,19 @@ def get_optimizer(model, optimizer: str, learning_rate, weight_decay=0.0):
             optimizer = torch.optim.SGD(optimizer_grouped_parameters, lr=learning_rate)
         case _:
             raise ValueError(f"Unsupported optimizer: {optimizer}")
-
+ 
     return optimizer
-
-
+ 
+ 
 class RunnerBasicTrain(SWRunnerBase):
     available_metrics = ("loss", "accuracy", "perplexity")
-
+ 
     def _post_init_setup(self) -> None:
         self.loss = MeanMetric().to(self.accelerator)
         self._setup_metric()
-
+ 
     def _setup_metric(self):
-        if self.model_info.is_vision_model:
+        if self.model_info.is_vision_model or self.model_info.is_physical_model:
             match self.task:
                 case "classification" | "cls":
                     self.metric = MulticlassAccuracy(
@@ -80,7 +87,7 @@ class RunnerBasicTrain(SWRunnerBase):
                     raise ValueError(f"task {self.task} is not supported.")
         else:
             raise ValueError(f"model type {self.model_info} is not supported.")
-
+ 
     def nlp_cls_forward(self, batch, model):
         batch.pop("sentence")
         batch = {
@@ -95,15 +102,20 @@ class RunnerBasicTrain(SWRunnerBase):
         self.metric(logits, labels)
         self.loss(loss)
         return loss
-
+ 
     def nlp_lm_forward(self, batch, model):
         raise NotImplementedError()
-
+ 
     def vision_cls_forward(self, batch, model):
-        raise NotImplementedError()
-
+        x, y = batch[0].to(self.accelerator), batch[1].to(self.accelerator)
+        logits = model(x)
+        loss = torch.nn.functional.cross_entropy(logits, y)
+        acc = self.metric(logits, y)
+        self.loss(loss)
+        return {"loss": loss, "accuracy": acc}
+ 
     def forward(self, task: str, batch: dict, model):
-        if self.model_info.is_vision_model:
+        if self.model_info.is_vision_model or self.model_info.is_physical_model:
             match self.task:
                 case "classification" | "cls":
                     loss = self.vision_cls_forward(batch, model)
@@ -119,9 +131,9 @@ class RunnerBasicTrain(SWRunnerBase):
                     raise ValueError(f"task {self.task} is not supported.")
         else:
             raise ValueError(f"model type {self.model_info} is not supported.")
-
+ 
         return loss
-
+ 
     def compute(self) -> dict[str, float]:
         reduced = {"loss": self.loss.compute().item()}
         if isinstance(self.metric, Perplexity):
@@ -131,15 +143,15 @@ class RunnerBasicTrain(SWRunnerBase):
         else:
             raise ValueError(f"metric {self.metric} is not supported.")
         return reduced
-
+ 
     def __call__(self, data_module, model, sampled_config) -> dict[str, float]:
         num_samples = self.config["num_samples"]
         max_epochs = self.config["max_epochs"]
-
+ 
         assert not (
             num_samples == -1 and max_epochs == -1
         ), "num_samples and max_epochs cannot be both -1"
-
+ 
         num_batches_per_epoch = len(data_module.train_dataloader())
         num_samples = min(
             max(num_samples, 1),
@@ -147,14 +159,9 @@ class RunnerBasicTrain(SWRunnerBase):
         )
         num_batches = math.ceil(num_samples / data_module.batch_size)
 
-        # ddp_sampler = DistributedSampler(data_module.train_dataset)
-
         train_dataloader = data_module.train_dataloader()
         steps_per_epoch = len(train_dataloader)
-
-        # torch 2.0
-        # model = torch.compile(model)
-
+ 
         optimizer = get_optimizer(
             model=model,
             optimizer=self.config["optimizer"],
@@ -167,29 +174,34 @@ class RunnerBasicTrain(SWRunnerBase):
             num_warmup_steps=self.config["num_warmup_steps"],
             num_training_steps=steps_per_epoch * self.config["max_epochs"],
         )
-
+ 
         grad_accumulation_steps = self.config.get("gradient_accumulation_steps", 1)
         assert grad_accumulation_steps > 0, "num_accumulation_steps must be > 0"
-
+ 
+        if isinstance(model, MaseGraph):
+            model = model.model
+ 
         train_iter = iter(train_dataloader)
         for step_i in range(num_batches):
             if step_i > num_batches:
                 break
-
+ 
             try:
                 batch = next(train_iter)
             except StopIteration:
                 train_iter = iter(train_dataloader)
                 batch = next(train_iter)
-
+ 
             model.train()
-            loss_i = self.forward(self.task, batch, model)
+            loss_i = self.forward(self.task, batch, model)['loss']
             loss_i = loss_i / grad_accumulation_steps
+ 
             loss_i.backward()
-
+ 
             if (step_i + 1) % grad_accumulation_steps == 0 or step_i == num_batches - 1:
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
-
+  
         return self.compute()
+ 

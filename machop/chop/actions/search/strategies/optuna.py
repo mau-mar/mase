@@ -53,6 +53,10 @@ class SearchStrategyOptuna(SearchStrategyBase):
                 sampler = optuna.samplers.NSGAIIISampler()
             case "qmc":
                 sampler = optuna.samplers.QMCSampler()
+            # Include case "bruteforce" (Lab 3 Question 3)
+            case "bruteforce":
+                sampler = optuna.samplers.BruteForceSampler()
+            ###
             case _:
                 raise ValueError(f"Unknown sampler name: {name}")
         return sampler
@@ -226,7 +230,7 @@ class SearchStrategyOptuna(SearchStrategyBase):
                         txt = txt[:20]
                     beautified[k] = txt
             return beautified
-
+        '''
         df_truncated.loc[
             :, ["software_metrics", "hardware_metrics", "scaled_metrics"]
         ] = df_truncated.loc[
@@ -234,6 +238,7 @@ class SearchStrategyOptuna(SearchStrategyBase):
         ].map(
             beautify_metric
         )
+        '''
         txt += tabulate(
             df_truncated,
             headers="keys",

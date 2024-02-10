@@ -60,7 +60,7 @@ def calculate_modules(module, in_data, out_data):
         assert len(in_data) == 1
         _, channels, _, _ = in_data.size()
         window_size = module.kernel_size[0] * module.kernel_size[1] * channels
-
+    
         # Not sure which output tensor to use if there are multiple of them.
         assert len(out_data) == 1
         input_size = in_data[0].numel()

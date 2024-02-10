@@ -28,10 +28,8 @@ class ToyTiny(nn.Module):
         in_planes = image_size[0] * image_size[1] * image_size[2]
         self.l1 = nn.Linear(in_planes, 2)
         self.relu_1 = nn.ReLU()
-        self.l2 = nn.Linear(4, 4)
+        self.l2 = nn.Linear(2, num_classes)
         self.relu_2 = nn.ReLU()
-        self.l3 = nn.Linear(2, num_classes)
-        self.relu_3 = nn.ReLU()
 
     def forward(self, x):
         x = x.view(x.size(0), -1)
@@ -39,8 +37,6 @@ class ToyTiny(nn.Module):
         x = self.relu_1(x)
         x = self.l2(x)
         x = self.relu_2(x)
-        x = self.l3(x)
-        x = self.relu_3(x)
         return x
 
 

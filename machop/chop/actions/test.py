@@ -29,6 +29,7 @@ def test(
     visualizer,
     load_name,
     load_type,
+    return_test_results=False
 ):
     if save_path is not None:
         if not os.path.exists(save_path):
@@ -57,7 +58,9 @@ def test(
 
     trainer = pl.Trainer(**plt_trainer_args)
     if data_module.dataset_info.test_split_available:
-        trainer.test(plt_model, datamodule=data_module)
+        test_results = trainer.test(plt_model, datamodule=data_module)
+        if return_test_results:
+            return test_results
     elif data_module.dataset_info.pred_split_available:
         predicted_results = trainer.predict(plt_model, datamodule=data_module)
         pred_save_name = os.path.join(save_path, "predicted_result.pkl")
