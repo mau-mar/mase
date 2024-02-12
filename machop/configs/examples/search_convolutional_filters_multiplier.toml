@@ -12,7 +12,7 @@ seed = 42
 log_every_n_steps = 5
 
 [search.search_space]
-name = "redefine/linear_channel_multiplier"
+name = "redefine/conv2d_channel_multiplier"
 
 [search.search_space.setup]
 by = "name"
@@ -20,41 +20,78 @@ by = "name"
 [search.search_space.seed.default.config]
 name = ["NA"]
 
-[search.search_space.seed.seq_blocks_2.config]
+[search.search_space.seed.feature_layers_0.config]
+# if search.search_space.setup.by = "name", this seed will be used to quantize the mase graph node with name "seq_blocks_2"
 name = ["output_only"]
-channel_multiplier = [1, 2, 3, 4]
+channel_multiplier_out = [2, 4]
 
-[search.search_space.seed.seq_blocks_4.config]
+[search.search_space.seed.feature_layers_1.config]
+# select name "scale" if the layer must be scaled according to according
+# to a scaled adjacent layer (e.g., BatchNorm2d after Conv2d)
+name = ["scale"]
+ 
+[search.search_space.seed.feature_layers_3.config]
 # if search.search_space.setup.by = "name", this seed will be used to quantize the mase graph node with name "seq_blocks_4"
 name = ["both"]
-channel_multiplier_in = [1, 2, 3, 4]
-channel_multiplier_out = [1, 2, 3, 4]
+# channel_multiplier_in = [2, 4] #input must match with previous output
+channel_multiplier_out = [2, 4]
 
-[search.search_space.seed.seq_blocks_6.config]
+[search.search_space.seed.feature_layers_4.config]
+# select name "scale" if the layer must be scaled according to according
+# to a scaled adjacent layer (e.g., BatchNorm2d after Conv2d)
+name = ["scale"]
+ 
+[search.search_space.seed.feature_layers_7.config]
 # if search.search_space.setup.by = "name", this seed will be used to quantize the mase graph node with name "seq_blocks_4"
 name = ["both"]
-channel_multiplier_in = [1, 2, 3, 4]
-channel_multiplier_out = [1, 2, 3, 4]
+# channel_multiplier_in = [2, 4] #input must match with previous output
+channel_multiplier_out = [2, 4]
+
+[search.search_space.seed.feature_layers_8.config]
+# select name "scale" if the layer must be scaled according to according
+# to a scaled adjacent layer (e.g., BatchNorm2d after Conv2d)
+name = ["scale"]
+ 
+[search.search_space.seed.feature_layers_10.config]
+# if search.search_space.setup.by = "name", this seed will be used to quantize the mase graph node with name "seq_blocks_4"
+name = ["both"]
+# channel_multiplier_in = [2, 4] #input must match with previous output
+channel_multiplier_out = [2, 4]
+
+[search.search_space.seed.feature_layers_11.config]
+# select name "scale" if the layer must be scaled according to according
+# to a scaled adjacent layer (e.g., BatchNorm2d after Conv2d)
+name = ["scale"]
+ 
 
 [search.strategy]
 name = "optuna"
-sw_runner = "basic_evaluation"
-hw_runner = "hw_dummy"
-eval_mode = false
-data_loader = 'train_dataloader'
-num_samples = 256
+eval_mode = false # run training + validation for each trial
 
+[search.strategy.sw_runner.basic_train]
+name = "accuracy"
+data_loader = "train_dataloader"
+num_samples = 999999
+max_epochs = 3
+lr_scheduler = "linear"
+optimizer = "adam"
+learning_rate = 1e-4
+num_warmup_steps = 0
+ 
+[search.strategy.hw_runner.hw_dummy]
+name = "hw_dummy"
+ 
 [search.strategy.setup]
 n_jobs = 1
-n_trials = 10
+n_trials = 20
 timeout = 20000
-sampler = "tpe"
+sampler = "tpe" # bruteforce(optuna/bruteforce) / tpe(optuna)
 # sum_scaled_metrics = true # single objective
 # direction = "maximize"
 sum_scaled_metrics = false # multi objective
 
 [search.strategy.metrics]
-# loss.scale = 0.0
+# loss.scale = 1.0
 # loss.direction = "minimize"
 accuracy.scale = 1.0
 accuracy.direction = "maximize"

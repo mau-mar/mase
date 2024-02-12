@@ -3,7 +3,7 @@ from .quantization import (
     GraphSearchSpaceMixedPrecisionPTQ,
 )
 from .systolic import SystolicMappingSearchSpace
-from .redefinition import LinearChannelMultiplierSpace
+from .redefinition import LinearChannelMultiplierSpace, Conv2dChannelMultiplierSpace
 from .base import SearchSpaceBase
 
 
@@ -12,6 +12,7 @@ SEARCH_SPACE_MAP = {
     "module/manual_hf/quantize/llm_mixed_precision_ptq": ManualHFModuleSearchSpaceMixedPrecisionPTQ,
     "graph/hardware/systolic_mapping": SystolicMappingSearchSpace,
     "redefine/linear_channel_multiplier": LinearChannelMultiplierSpace,
+    "redefine/conv2d_channel_multiplier": Conv2dChannelMultiplierSpace,
 }
 
 
