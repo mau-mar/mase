@@ -10,7 +10,7 @@ accelerator = "cpu"
 project = "jsc-three-linear-layers-L4Q4"
 seed = 42
 log_every_n_steps = 5
-# load_name = <path to checkpoint, if want to use pretrained model>
+# load_name = <path to checkpoint> # if want to use pretrained model
 # load_type = "pl" 
 
 [passes.quantize]
@@ -39,18 +39,18 @@ name = ["NA"]
 [search.search_space.seed.seq_blocks_2.config]
 # if search.search_space.setup.by = "name", this seed will be used to quantize the mase graph node with name "seq_blocks_2"
 name = ["output_only"]
-channel_multiplier = [1, 2, 3, 4]
+channel_multiplier_out = [1, 2, 3, 4, 5, 6]
  
 [search.search_space.seed.seq_blocks_4.config]
-# if search.search_space.setup.by = "name", this seed will be used to quantize the mase graph node with name "seq_blocks_2"
+# if search.search_space.setup.by = "name", this seed will be used to quantize the mase graph node with name "seq_blocks_4"
 name = ["both"]
-channel_multiplier_in = [1, 2, 3, 4]
-channel_multiplier_out = [1, 2, 3, 4]
+# channel_multiplier_in = [1, 2, 3, 4] #input must match with previous output
+channel_multiplier_out = [1, 2, 3, 4, 5, 6]
 
-[search.search_space.seed.seq_blocks_6.config]
-# if search.search_space.setup.by = "name", this seed will be used to quantize the mase graph node with name "seq_blocks_2"
-name = ["input_only"]
-channel_multiplier = [1, 2, 3, 4]
+# [search.search_space.seed.seq_blocks_6.config]
+# if search.search_space.setup.by = "name", this seed will be used to quantize the mase graph node with name "seq_blocks_6"
+# name = ["input_only"]
+# channel_multiplier = [1, 2, 3, 4] #input must match with previous output
 
 [search.strategy]
 name = "optuna"
@@ -71,9 +71,9 @@ name = "hw_dummy"
  
 [search.strategy.setup]
 n_jobs = 1
-n_trials = 100
+n_trials = 20
 timeout = 20000
-sampler = "bruteforce" # bruteforce(optuna/bruteforce) / tpe(optuna)
+sampler = "tpe" # bruteforce(optuna/bruteforce) / tpe(optuna)
 # sum_scaled_metrics = true # single objective
 # direction = "maximize"
 sum_scaled_metrics = false # multi objective

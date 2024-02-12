@@ -66,7 +66,7 @@ class JSC_Less_Tiny(nn.Module):
         return self.seq_blocks(x)
 
 class JSC_Three_Linear_Layers(nn.Module):
-    def __init__(self):
+    def __init__(self, info):
         super(JSC_Three_Linear_Layers, self).__init__()
         self.seq_blocks = nn.Sequential(
             nn.BatchNorm1d(16),  # 0

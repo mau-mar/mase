@@ -104,4 +104,35 @@ class LinearChannelMultiplierSpace(SearchSpaceBase):
         config = unflatten_dict(flattened_config)
         config["default"] = self.default_config
         config["by"] = self.config["setup"]["by"]
+
+        ### Make sure the sampled configuration does not lead to size mismatches
+        '''
+        check = True
+        next_out = -1
+        for key in config.keys():
+          if key == "default" or key == "by":
+            continue
+          name = config[key]['config']['name']
+          if name != "both":
+            require_in = config[key]['config']['channel_multiplier']
+            require_out = config[key]['config']['channel_multiplier']
+          else:
+            require_in = config[key]['config']['channel_multiplier_in'] 
+            require_out = config[key]['config']['channel_multiplier_out'] 
+        
+          if next_out != -1:
+            check = require_in == next_out
+          
+          if not check:          
+            print(f"Mismatch detected selected by the Sampler; using previous multiplier...")
+            print(config)
+
+            if name != "both":
+              config[key]['config']['channel_multiplier'] = next_out
+            else:
+              config[key]['config']['channel_multiplier_in'] = next_out
+          next_out = require_out
+        '''
+        ###
+
         return config

@@ -1,0 +1,62 @@
+# basics
+model = "vgg7"
+dataset = "cifar10"
+task = "cls"
+
+max_epochs = 5
+batch_size = 128
+learning_rate = 1e-2
+accelerator = "gpu"
+project = "L4Q5"
+seed = 42
+log_every_n_steps = 5
+
+[search.search_space]
+name = "redefine/linear_channel_multiplier"
+
+[search.search_space.setup]
+by = "name"
+
+[search.search_space.seed.default.config]
+name = ["NA"]
+
+[search.search_space.seed.seq_blocks_2.config]
+name = ["output_only"]
+channel_multiplier = [1, 2, 3, 4]
+
+[search.search_space.seed.seq_blocks_4.config]
+# if search.search_space.setup.by = "name", this seed will be used to quantize the mase graph node with name "seq_blocks_4"
+name = ["both"]
+channel_multiplier_in = [1, 2, 3, 4]
+channel_multiplier_out = [1, 2, 3, 4]
+
+[search.search_space.seed.seq_blocks_6.config]
+# if search.search_space.setup.by = "name", this seed will be used to quantize the mase graph node with name "seq_blocks_4"
+name = ["both"]
+channel_multiplier_in = [1, 2, 3, 4]
+channel_multiplier_out = [1, 2, 3, 4]
+
+[search.strategy]
+name = "optuna"
+sw_runner = "basic_evaluation"
+hw_runner = "hw_dummy"
+eval_mode = false
+data_loader = 'train_dataloader'
+num_samples = 256
+
+[search.strategy.setup]
+n_jobs = 1
+n_trials = 10
+timeout = 20000
+sampler = "tpe"
+# sum_scaled_metrics = true # single objective
+# direction = "maximize"
+sum_scaled_metrics = false # multi objective
+
+[search.strategy.metrics]
+# loss.scale = 0.0
+# loss.direction = "minimize"
+accuracy.scale = 1.0
+accuracy.direction = "maximize"
+# average_bitwidth.scale = 0.2
+# average_bitwidth.direction = "minimize"

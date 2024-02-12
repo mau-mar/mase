@@ -6,12 +6,12 @@ task = "cls"
 max_epochs = 5
 batch_size = 512
 learning_rate = 1e-2
-accelerator = "cpu"
-project = "lab_1_tinyX10"
+accelerator = "gpu"
+project = "jsc_tinyX10"
 seed = 42
 log_every_n_steps = 5
-load_name = "../mase_output/lab_1_tinyX10/software/training_ckpts/best-ep10_bs256.ckpt"
-load_type = "pl"
+# load_name = "../mase_output/jsc_tinyX10/software/training_ckpts/best_ep10_bs256.ckpt"
+# load_type = "pl"
 
 [passes.quantize]
 by = "type"
@@ -30,7 +30,7 @@ name = "integer"
 name = "graph/quantize/mixed_precision_ptq"
 
 [search.search_space.setup]
-by = "type"
+by = "name"
 
 [search.search_space.seed.default.config]
 # the only choice "NA" is used to indicate that layers are not quantized by default
@@ -66,7 +66,7 @@ num_samples = 512
 
 [search.strategy.hw_runner.hw_dummy]
 name = "hw_dummy"
- 
+
 [search.strategy.setup]
 n_jobs = 1
 n_trials = 20

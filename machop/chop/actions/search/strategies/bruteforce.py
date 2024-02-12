@@ -9,8 +9,8 @@ from functools import partial
 
 from .base import SearchStrategyBase
 
-from ....passes.graph.transforms.redefine.redefine import redefine_linear_transform_pass
-from ....passes.graph.analysis.report import init_metadata_analysis_pass
+#from ....passes.graph.transforms.redefine.redefine import redefine_linear_transform_pass
+#from ....passes.graph.analysis.report import init_metadata_analysis_pass
 from ....ir import MaseGraph
 
 from ....models import get_model_info, get_model
@@ -40,15 +40,13 @@ class SearchStrategyBruteforce(SearchStrategyBase):
         else:
             self.direction = self.config["setup"]["direction"]
 
-    def _setup_model_mg(self):
+    def _setup_model(self):
         model = get_model(self.model_name,
                         task="cls",
                         dataset_info=self.dataset_info,
                         pretrained=False)
             
-        mg = MaseGraph(model=model)
-        mg, _ = init_metadata_analysis_pass(mg, None)
-        return model, mg
+        return model
 
     def _setup_data(self):
         self.data_module.prepare_data()
@@ -64,7 +62,8 @@ class SearchStrategyBruteforce(SearchStrategyBase):
             for runner in self.sw_runner:
                 metrics |= runner(self.data_module, model, sampled_config)
         return metrics
-
+    
+    '''
     def compute_hardware_metrics(self, model, sampled_config, is_eval_mode: bool):
         metrics = {}
         if is_eval_mode:
@@ -75,50 +74,76 @@ class SearchStrategyBruteforce(SearchStrategyBase):
             for runner in self.hw_runner:
                 metrics |= runner(self.data_module, model, sampled_config)
         return metrics
+    '''
+    
+    def objective(self, search_space, sampled_config, model, is_eval_mode: bool):
+        """
+        Compute & Scale metrics.
+        """
+        raise NotImplementedError()
 
-    def search(self, search_space):        
+    def search(self, search_space):   
+        import itertools     
         results = {}
+        best_results = {}
 
         self._setup_data()
 
+        k = search_space.choices_flattened.keys()
+
+        flattened_lengths = search_space.choice_lengths_flattened.values()
+
+        idx = [list(range(i)) for i in list(flattened_lengths)] #define indexes
+    
+        configs_list = []
+        for combination in itertools.product(*idx):
+            combination_config = dict(zip(k, combination))
+            configs_list.append(combination_config)
+
         best_acc = 0
-
-        for i, config in enumerate(search_space):
-            sampled_config = copy.deepcopy(config)
-
-            model, mg = self._setup_model_mg()
-            # mg, _ = redefine_linear_transform_pass(mg, {"config": sampled_config})
-            # model = mg.model
-
-            is_eval_mode = self.config.get("eval_mode", False)
-
+        trial_num = 0
+        for i in configs_list:
+            sampled_config = search_space.flattened_indexes_to_config(i)
+        
+            is_eval_mode = self.config.get("eval_mode", True)
             model = search_space.rebuild_model(sampled_config, is_eval_mode)
-
+       
             software_metrics = self.compute_software_metrics(
                 model, sampled_config, is_eval_mode
             )
-            # hardware_metrics = self.compute_hardware_metrics(
-            #     model, sampled_config, is_eval_mode
-            # )
-
-            self.visualizer.log_metrics(metrics=software_metrics, step=i)
-
-            trial_acc = ...
-            if trial_acc > best_acc:
-                best_acc = trial_acc
+                
+            results[f'trial_{trial_num}'] = {'config':sampled_config,
+                                        'metrics':software_metrics}
+            
+            acc = software_metrics['accuracy'] 
+            if acc > best_acc:
+                best_acc = acc
                 best_config = sampled_config
-                best_multiplier_1 = config['seq_blocks_2']['config']['channel_multiplier']
-                best_multiplier_2 = config['seq_blocks_6']['config']['channel_multiplier']
+                best_software_metrics = software_metrics
+                best_trial = trial_num
+                    
+                print(f"Best trial Updated: Trial {best_trial} - Best Accuracy: {best_acc}")
 
-            results[f'trial_{i}'] = {'config':sampled_config,
-                                     'metrics':software_metrics}
+            # self.visualizer.log_metrics(metrics=software_metrics, step=i)
+            trial_num += 1
 
-        best_results = {'config':best_config,
-                        'test_accuracy':best_acc}
+        best_results = {
+            'config': best_config,
+            'metrics':best_software_metrics,
+            'acc':best_acc,
+            'best_trial':best_trial
+        }
 
-        print(f"Best Accuracy: {best_acc}\nBest Channel Multiplier 1: {best_multiplier_1}\nBest Channel Multiplier 2: {best_multiplier_2}")
+        import json
+        with open(f'{self.save_dir}/results.json', 'w') as fp:
+            json.dump(results, fp)
+        with open(f'{self.save_dir}/best_results.json', 'w') as fp:
+            json.dump(best_results, fp)
 
-        self._save_study(results, self.save_dir / "study.json")
-        self._save_study(best_results, self.save_dir / "best.json")
+        #self._save_study(results, self.save_dir / "results.json")
+        #self._save_study(best_results, self.save_dir / "best_results.json")
+    
+        print(f"Bruteforce search performed. Saving results in {self.save_dir}/study.json")
 
-        return results, best_results #best_acc, best_multiplier_1, best_multiplier_2, recorded_accs
+
+        return results 

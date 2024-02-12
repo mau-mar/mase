@@ -7,10 +7,10 @@ max_epochs = 5
 batch_size = 512
 learning_rate = 1e-2
 accelerator = "cpu"
-project = "lab_1_tinyX10"
+project = "jsc_tinyX10"
 seed = 42
 log_every_n_steps = 5
-load_name = "../mase_output/lab_1_tinyX10/software/training_ckpts/best-ep10_bs256.ckpt"
+load_name = "../mase_output/jsc_tinyX10/software/training_ckpts/best_ep10_bs256.ckpt"
 load_type = "pl"
 
 [passes.quantize]
